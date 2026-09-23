@@ -65,6 +65,12 @@
     if (e.type==='hidden' || !visible(e) || e.matches(':disabled') || e.closest('[aria-disabled="true"]')) continue;
     const r=e.getBoundingClientRect(), x=r.x+r.width/2, y=r.y+r.height/2, rname=role(e);
     if (!rname || r.width<=0 || r.height<=0 || x<0 || y<0 || x>=innerWidth || y>=innerHeight) continue;
+    // Same hit test the executor applies before input: a control whose centre is
+    // under another element (a toast, an install prompt, a sticky bar) cannot be
+    // clicked, so offering it only makes Jev pick it again and again. Hidden
+    // here, the model can dismiss the overlay or scroll instead.
+    const top=document.elementFromPoint(x,y);
+    if (top && !e.contains(top)) continue;
     if (rname==='gridcell' && e.querySelector('button,[role="button"]')) continue;
     const base={node:identity(e),role:rname,label:name(e)||rname,
       rect:{x:r.x,y:r.y,w:r.width,h:r.height}};
