@@ -56,7 +56,11 @@
       e.getAttribute('href'),scope?.innerText?.slice(0,6000)||''];
   };
   const actions=[], uploads=[];
+  // An open modal makes everything outside it unreachable for the user (and a click there is
+  // covered), so while one is shown only its controls are offered. The last one is on top.
+  const modal=[...document.querySelectorAll('dialog[open],[aria-modal="true"]')].filter(visible).pop() || null;
   for (const e of document.querySelectorAll(selector)) {
+    if (modal && !modal.contains(e)) continue;
     if (e.type==='file') { if (!e.disabled) uploads.push(e); continue; }
     if (e.type==='hidden' || !visible(e) || e.matches(':disabled') || e.closest('[aria-disabled="true"]')) continue;
     const r=e.getBoundingClientRect(), x=r.x+r.width/2, y=r.y+r.height/2, rname=role(e);
