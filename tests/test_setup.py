@@ -185,3 +185,55 @@ def test_release_versions_agree():
     for doc in ("README.md", "docs/ci.md"):
         refs = set(re.findall(r"aadilghani1/qc-use@v([\w.]+)", (ROOT / doc).read_text(encoding="utf-8")))
         assert refs == {project}, doc
+
+
+class _FakeProcess:
+    def __init__(self, calls):
+        self.calls, self.alive = calls, True
+
+    def poll(self):
+        return None if self.alive else 0
+
+    def terminate(self):
+        self.calls.append("terminate")
+        self.alive = False
+
+    def wait(self, _timeout=None):
+        return 0
+
+    def kill(self):
+        self.calls.append("kill")
+        self.alive = False
+
+
+def _fake_chrome(tmp_path, calls, quit_behaviour):
+    from qc_use.chrome import Chrome
+
+    chrome = Chrome.__new__(Chrome)
+    chrome.process, chrome.url, chrome.profile, chrome.temporary = _FakeProcess(calls), "http://127.0.0.1:9", tmp_path, False
+
+    def quit(timeout=5):
+        calls.append("quit")
+        quit_behaviour(chrome)
+
+    chrome.quit = quit
+    return chrome
+
+
+def test_close_quits_chrome_over_devtools_before_sigterm(tmp_path):
+    # A reused --profile must keep the cookies the run wrote (rotated session tokens).
+    calls = []
+    chrome = _fake_chrome(tmp_path, calls, lambda c: setattr(c.process, "alive", False))
+    chrome.close()
+    assert calls == ["quit"]
+
+
+def test_close_falls_back_to_sigterm_when_devtools_quit_fails(tmp_path):
+    calls = []
+
+    def broken(_chrome):
+        raise OSError("DevTools gone")
+
+    chrome = _fake_chrome(tmp_path, calls, broken)
+    chrome.close()
+    assert calls == ["quit", "terminate"]

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import urllib.request
 from pathlib import Path
 
 CANDIDATES = {
@@ -89,7 +90,27 @@ class Chrome:
             self.close()
             raise
 
+    def quit(self, timeout=5):
+        """Ask Chrome to quit over DevTools and wait for it to exit.
+
+        SIGTERM can end Chrome before it writes its cookie store, so a reused
+        --profile keeps the cookies from before the run. An app that rotates its
+        session cookie then finds an already-used token in the profile next time.
+        """
+        from websockets.sync.client import connect
+
+        with urllib.request.urlopen(f"{self.url}/json/version", timeout=2) as response:
+            endpoint = json.loads(response.read())["webSocketDebuggerUrl"]
+        with connect(endpoint, open_timeout=2, close_timeout=1, max_size=None) as socket:
+            socket.send(json.dumps({"id": 1, "method": "Browser.close"}))
+            with contextlib.suppress(Exception):
+                socket.recv(timeout=2)
+        self.process.wait(timeout)
+
     def close(self):
+        if self.process is not None and self.process.poll() is None and getattr(self, "url", None):
+            with contextlib.suppress(Exception):
+                self.quit()
         if self.process is not None and self.process.poll() is None:
             self.process.terminate()
             try:
