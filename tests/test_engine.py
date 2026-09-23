@@ -655,3 +655,39 @@ def test_stale_read_after_an_action_still_counts_toward_the_stuck_stop():
         a.tick()
         assert a.state["history"][-1]["page_changed"] is False, attempt
     assert a.state["status"] == "blocked"
+
+
+def scrollable_page():
+    state = page()
+    state["actions"].insert(
+        -1, {"id": "scroll_down", "kind": "scroll", "label": "Scroll down", "delta": 400, "x": 600, "y": 420}
+    )
+    state["fingerprint"] = fingerprint(state)
+    return state
+
+
+def test_blocked_with_more_page_below_scrolls_instead_of_giving_up():
+    a = make_agent(scrollable_page())
+    a.state["decision"] = decision("BLOCKED", operation="BLOCKED")
+    a.act()
+    executed = a.browser.act.call_args.args[0]
+    assert executed["id"] == "scroll_down"
+    assert (executed["x"], executed["y"]) == (600, 420)
+    assert a.state["status"] != "blocked"
+
+
+def test_blocked_without_a_scroll_option_still_blocks():
+    a = make_agent()
+    a.state["decision"] = decision("BLOCKED", operation="BLOCKED")
+    a.act()
+    a.browser.act.assert_not_called()
+    assert a.state["status"] == "blocked"
+
+
+def test_automatic_scrolling_stops_at_its_budget():
+    a = make_agent(scrollable_page())
+    a.state["history"].extend({"kind": "scroll", "page_changed": True} for _ in range(a.MAX_AUTO_SCROLLS))
+    a.state["decision"] = decision("BLOCKED", operation="BLOCKED")
+    a.act()
+    a.browser.act.assert_not_called()
+    assert a.state["status"] == "blocked"

@@ -101,6 +101,14 @@ class Agent:
         )
         state["status"] = "predicted"
 
+    MAX_AUTO_SCROLLS = 6
+
+    def can_scroll_instead(self, page):
+        if not any(a["id"] == "scroll_down" for a in page["actions"]):
+            return False
+        recent = self.state["history"][self.state["first_action"] :]
+        return sum(1 for h in recent if h.get("kind") == "scroll") < self.MAX_AUTO_SCROLLS
+
     def act(self):
         state = self.state
         decision, page = state["decision"], state["page"]
@@ -117,6 +125,10 @@ class Agent:
             )
         ):
             selected = "DONE"  # Stop before another action can leave the verified checkpoint.
+        if selected == "BLOCKED" and self.can_scroll_instead(page):
+            # Only visible controls are offered, so "not on the page" is often "below the fold".
+            # Scrolling reads more of the page and changes no data; code takes it before giving up.
+            selected = "scroll_down"
         if selected in {"DONE", "BLOCKED"}:
             if not self.browser.fresh(page):
                 state["status"] = "ready"
@@ -152,7 +164,7 @@ class Agent:
             "choice": selected,
             "operation": decision["operation"],
             "target": decision["target"],
-            "probability": decision["probabilities"][selected],
+            "probability": decision["probabilities"].get(selected, 0.0),
             "confidence": decision["confidence"],
             "latency_ms": decision["latency_ms"],
             "text": shown,

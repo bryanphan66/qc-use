@@ -17,6 +17,9 @@ class Action(TypedDict):
     secret: NotRequired[str]
     file: NotRequired[str]
     delta: NotRequired[int]
+    # Wheel point for a scroll action; set when an inner pane scrolls instead of the document.
+    x: NotRequired[int]
+    y: NotRequired[int]
     entry_id: NotRequired[int]
 
 

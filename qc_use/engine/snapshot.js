@@ -129,11 +129,27 @@
   const omitted_actions=Math.max(0,actions.length-250);
   actions.splice(250);
   actions.forEach((a,i)=>a.id='e'+(i+1));
-  if (scrollY+innerHeight<height-2) actions.push({id:'scroll_down',kind:'scroll',label:'Scroll down',delta:560});
-  if (scrollY>0) actions.push({id:'scroll_up',kind:'scroll',label:'Scroll up',delta:-560});
+  // App shells often keep the document at viewport height and scroll an inner pane instead
+  // (overflow:auto on the content area). Offer scrolling for that pane too, aimed at its centre.
+  let pane=null;
+  if (!(scrollY+innerHeight<height-2) && scrollY<=0) {
+    for (const e of document.querySelectorAll('*')) {
+      if (e.scrollHeight<=e.clientHeight+2 || !/(auto|scroll|overlay)/.test(getComputedStyle(e).overflowY)) continue;
+      const r=e.getBoundingClientRect();
+      const w=Math.min(r.right,innerWidth)-Math.max(r.left,0), h=Math.min(r.bottom,innerHeight)-Math.max(r.top,0);
+      if (w<=0 || h<=0) continue;
+      if (!pane || w*h>pane.area) pane={e,area:w*h,x:Math.max(r.left,0)+w/2,y:Math.max(r.top,0)+h/2};
+    }
+  }
+  const at=pane ? {x:Math.round(pane.x),y:Math.round(pane.y)} : {};
+  const step=Math.round((pane ? pane.e.clientHeight : innerHeight)*0.7);
+  const down=pane ? pane.e.scrollTop+pane.e.clientHeight<pane.e.scrollHeight-2 : scrollY+innerHeight<height-2;
+  const up=pane ? pane.e.scrollTop>0 : scrollY>0;
+  if (down) actions.push({id:'scroll_down',kind:'scroll',label:'Scroll down: the page continues below the visible area and more controls may be there',delta:pane ? step : 560,...at});
+  if (up) actions.push({id:'scroll_up',kind:'scroll',label:'Scroll up: more of the page is above the visible area',delta:pane ? -step : -560,...at});
   actions.push({id:'reload',kind:'reload',label:'Reload current page only when explicitly requested',href:location.href});
   actions.push({id:'wait',kind:'wait',label:'Wait for the page to update'});
   return {url:location.href,title:document.title,document_text:documentWords.join("\n").slice(0,20000),
     document_text_truncated:documentTruncated,text_truncated:length>6000,w:innerWidth,h:innerHeight,text,
-    scroll:{y:scrollY,height},actions,marker,page_key,guards,omitted_actions,frames};
+    scroll:{y:scrollY+(pane ? pane.e.scrollTop : 0),height:pane ? pane.e.scrollHeight : height},actions,marker,page_key,guards,omitted_actions,frames};
 })()
