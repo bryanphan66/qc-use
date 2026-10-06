@@ -249,6 +249,7 @@ qc-use needs Chrome, [uv](https://docs.astral.sh/uv/), and one key.
 | `JEV_PROVIDER` | `gateway` | Set `typesafe` to call TypeSafe directly with `TYPESAFE_API_KEY`. |
 | `TEXT_MODEL` | `inception/mercury-2.5` | The model that writes text for text fields. |
 | `TEXT_MODEL_BASE_URL` | AI Gateway | Any OpenAI-compatible endpoint. Set `TEXT_MODEL_API_KEY` for other providers. |
+| `TEXT_MODEL_PRICE_IN`, `TEXT_MODEL_PRICE_OUT` | none | USD per 1M input and output tokens. Set both when your text provider does not report cost; qc-use then estimates the text helper's spend from token counts. |
 | `QC_USE_CHROME` | found automatically | The path of Chrome or Chromium. |
 
 Put these values in `qa/.env` (qc-use keeps it out of git) or in your environment. Run `qc-use doctor` to check everything. The full guide is in [install.md](https://github.com/aadilghani1/qc-use/blob/main/install.md).

@@ -191,3 +191,18 @@ def test_rejected_key_at_preflight_is_a_setup_error(monkeypatch, tmp_path, statu
     else:
         assert runner.run(spec, results_dir=tmp_path, echo=lambda *_: None).exit_code == 2
     chrome.assert_not_called()
+
+
+def test_text_helper_cost_is_estimated_from_token_prices(monkeypatch, meter):
+    usage = {"usage": {"prompt_tokens": 1000, "completion_tokens": 500}}
+    monkeypatch.setattr(model.CLIENT, "post", Mock(return_value=httpx.Response(200, json=usage)))
+    model.post_json("https://example.test", "key", {}, purpose="text_helper")
+    assert meter.unpriced == 1  # no prices configured: cost stays unknown
+    monkeypatch.setenv("TEXT_MODEL_PRICE_IN", "0.2")
+    monkeypatch.setenv("TEXT_MODEL_PRICE_OUT", "0.4")
+    model.post_json("https://example.test", "key", {}, purpose="action")
+    assert meter.unpriced == 2  # prices apply to the text helper only
+    model.post_json("https://example.test", "key", {}, purpose="text_helper")
+    assert meter.unpriced == 2 and meter.estimated
+    assert meter.usd == pytest.approx(0.0004)
+    assert meter.pricing[-1]["source"] == "text_estimate"
