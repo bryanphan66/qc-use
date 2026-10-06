@@ -73,7 +73,19 @@ class Meter:
         if self.limit is not None and self.usd >= self.limit:
             raise BudgetExceeded(f"Model spend reached the ${self.limit:.2f} cap; no request sent.")
 
-    def charge(self, result, *, direct_jev=False):
+    @staticmethod
+    def text_price_estimate(usage):
+        """USD from tokens and TEXT_MODEL_PRICE_IN/OUT (per 1M tokens); None unless both prices are set."""
+        try:
+            price_in = float(os.environ["TEXT_MODEL_PRICE_IN"])
+            price_out = float(os.environ["TEXT_MODEL_PRICE_OUT"])
+            tokens_in, tokens_out = usage["prompt_tokens"], usage["completion_tokens"]
+            cost = (tokens_in * price_in + tokens_out * price_out) / 1_000_000
+        except (KeyError, TypeError, ValueError):
+            return None
+        return cost if math.isfinite(cost) and cost >= 0 else None
+
+    def charge(self, result, *, direct_jev=False, text_helper=False):
         self.calls += 1
         gateway = (result.get("provider_metadata") or {}).get("gateway") or {}
         usage = result.get("usage") or {}
@@ -82,6 +94,8 @@ class Meter:
             cost = usage["input_tokens"] * self.JEV_INPUT_USD
             self.estimated = True
         source = "typesafe_estimate" if direct_jev and gateway.get("cost", usage.get("cost")) is None else "provider"
+        if cost is None and text_helper and (cost := self.text_price_estimate(usage)) is not None:
+            self.estimated, source = True, "text_estimate"
         try:
             if isinstance(cost, bool) or cost is None or not math.isfinite(float(cost)) or float(cost) < 0:
                 raise ValueError
@@ -118,7 +132,7 @@ def post_json(url: str, key: str, body: dict, *, purpose="model") -> dict:
         if not isinstance(result, dict):
             raise ValueError
         if meter:
-            meter.charge(result, direct_jev=url == JEV_PROVIDERS["typesafe"][0])
+            meter.charge(result, direct_jev=url == JEV_PROVIDERS["typesafe"][0], text_helper=purpose == "text_helper")
             record["pricing"] = meter.pricing[-1]
             record["usage"] = result.get("usage", {})
     except (ValueError, TypeError, AttributeError):
