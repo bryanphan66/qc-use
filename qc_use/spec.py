@@ -236,13 +236,19 @@ def rebase(spec, base_url):
     base = urlparse(base_url)
     if base.path not in {"", "/"} or base.query or base.fragment:
         raise SpecError(f"--base-url must be an origin such as https://preview.example.test, not '{base_url}'.")
-    url = urlparse(spec.url)._replace(scheme=base.scheme, netloc=base.netloc).geturl()
+    # The credentials of a protected preview (https://user:pass@host) are checked on the bare origin and put back after
+    # the check. A test file's own `url:` still may not carry any, so a secret never lives in a committed test.
+    bare = base.netloc.rpartition("@")[2]
+    url = urlparse(spec.url)._replace(scheme=base.scheme, netloc=bare).geturl()
     try:
-        return TestSpec.model_validate({**spec.model_dump(), "url": url})
+        checked = TestSpec.model_validate({**spec.model_dump(), "url": url})
     except ValidationError:
         raise SpecError(
             f"--base-url must be an http(s) origin such as http://localhost:3000, not '{base_url}'."
         ) from None
+    if bare == base.netloc:
+        return checked
+    return checked.model_copy(update={"url": urlparse(url)._replace(netloc=base.netloc).geturl()})
 
 
 def load(path):

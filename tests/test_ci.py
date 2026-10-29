@@ -118,6 +118,21 @@ def test_base_url_moves_the_start_origin_and_keeps_the_path():
     assert moved.steps == spec.steps and spec.url.startswith("http://localhost")
 
 
+def test_base_url_keeps_the_basic_auth_credentials_of_a_protected_preview():
+    spec = TestSpec(title="T", url="http://localhost:3000/login", steps=[Step(text="Go", expect=["x"])])
+    moved = rebase(spec, "https://qa%40team:p%3Ass@preview.example.test")
+    assert moved.url == "https://qa%40team:p%3Ass@preview.example.test/login"
+    with pytest.raises(SpecError, match="--base-url"):
+        rebase(spec, "https://qa:pass@preview.test/app")
+    with pytest.raises(SpecError, match="http"):
+        rebase(spec, "ftp://qa:pass@preview.test")
+
+
+def test_a_test_file_url_still_may_not_carry_credentials():
+    with pytest.raises(ValueError, match="http"):
+        TestSpec(title="T", url="https://qa:pass@preview.test/login", steps=[Step(text="Go", expect=["x"])])
+
+
 @pytest.mark.parametrize(
     "base", ["https://preview.test/app", "preview.test", "ftp://preview.test", "https://x.test/?a"]
 )
