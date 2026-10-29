@@ -53,6 +53,8 @@ The action has two outputs: `exit-code` (see the exit codes in the README) and `
 
 **A staging or preview site.** Set `base-url` to the site. qc-use refuses a URL that looks like production. A generated preview address, such as `my-app-git-fix-team.vercel.app`, looks like production to qc-use. Add `args: --allow-production` only when the site is a preview with test data.
 
+**A site behind HTTP basic auth.** Put the credentials in `base-url` as `https://user:password@host`, with `user` and `password` URL-encoded. They apply to every test of the run. A `url:` inside a test file still may not carry credentials, so no password is committed. Keep the value in a CI secret: the page's start URL and the run output may show it.
+
 **The app in the same job.** Start the app before the action, and wait until it answers:
 
 ```yaml
