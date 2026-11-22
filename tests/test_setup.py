@@ -210,7 +210,12 @@ def _fake_chrome(tmp_path, calls, quit_behaviour):
     from qc_use.chrome import Chrome
 
     chrome = Chrome.__new__(Chrome)
-    chrome.process, chrome.url, chrome.profile, chrome.temporary = _FakeProcess(calls), "http://127.0.0.1:9", tmp_path, False
+    chrome.process, chrome.url, chrome.profile, chrome.temporary = (
+        _FakeProcess(calls),
+        "http://127.0.0.1:9",
+        tmp_path,
+        False,
+    )
 
     def quit(timeout=5):
         calls.append("quit")
@@ -237,3 +242,28 @@ def test_close_falls_back_to_sigterm_when_devtools_quit_fails(tmp_path):
     chrome = _fake_chrome(tmp_path, calls, broken)
     chrome.close()
     assert calls == ["quit", "terminate"]
+
+
+@pytest.mark.parametrize("status", [200, 401])
+def test_doctor_asks_the_local_judge_for_health(tmp_path, monkeypatch, capsys, status):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(doctor, "status", list)
+    monkeypatch.setattr(doctor, "find_chrome", lambda: "chrome")
+    monkeypatch.setattr(doctor, "Chrome", MagicMock())
+    monkeypatch.setenv("JEV_PROVIDER", "local")
+    monkeypatch.setenv("JEV_BASE_URL", "http://127.0.0.1:8787")
+    monkeypatch.setenv("JEV_API_KEY", "private-local-token")
+    monkeypatch.setenv("TEXT_MODEL_BASE_URL", "http://127.0.0.1:8787/v1")
+    monkeypatch.setenv("TEXT_MODEL_API_KEY", "private-local-token")
+    seen = []
+
+    def get(url, **kwargs):
+        seen.append((url, kwargs["headers"]["Authorization"]))
+        return httpx.Response(status)
+
+    monkeypatch.setattr(doctor.httpx, "get", get)
+    assert cli.main(["doctor", "--json"]) == (0 if status == 200 else 4)
+    output = capsys.readouterr().out
+    assert "private-local-token" not in output
+    assert seen == [("http://127.0.0.1:8787/health", "Bearer private-local-token")]
+    assert any(c["message"].startswith("Local judge answers") for c in json.loads(output)["checks"])

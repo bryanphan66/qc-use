@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: aadilghani1/qc-use@v0.3.0
+      - uses: aadilghani1/qc-use@v0.4.0
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
           LOGIN_EMAIL: ${{ secrets.LOGIN_EMAIL }}
@@ -61,7 +61,7 @@ The action has two outputs: `exit-code` (see the exit codes in the README) and `
       - run: npm ci && npm run build
       - run: npm start &
       - run: npx wait-on http://localhost:3000
-      - uses: aadilghani1/qc-use@v0.3.0
+      - uses: aadilghani1/qc-use@v0.4.0
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
 ```
@@ -80,7 +80,7 @@ jobs:
         test: [qa/onboarding.md, qa/checkout.md, qa/settings.md]
     steps:
       - uses: actions/checkout@v7
-      - uses: aadilghani1/qc-use@v0.3.0
+      - uses: aadilghani1/qc-use@v0.4.0
         env:
           AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
         with:

@@ -186,7 +186,7 @@ The source hash in `qc-use --version` identifies the installed build. After an u
 Use the GitHub Action to run your critical paths on each pull request or on a schedule:
 
 ```yaml
-- uses: aadilghani1/qc-use@v0.3.0
+- uses: aadilghani1/qc-use@v0.4.0
   env:
     AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
   with:
@@ -247,6 +247,7 @@ qc-use needs Chrome, [uv](https://docs.astral.sh/uv/), and one key.
 | --- | --- | --- |
 | `AI_GATEWAY_API_KEY` | none | A [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) key. One key runs Jev and the text helper. |
 | `JEV_PROVIDER` | `gateway` | Set `typesafe` to call TypeSafe directly with `TYPESAFE_API_KEY`. |
+| `JEV_BASE_URL` | none | With `JEV_PROVIDER=local`: the loopback origin (`http://127.0.0.1:<port>`) of a judge that answers the same `/v1/systemone` requests, authenticated with `JEV_API_KEY`. `qc-use doctor` asks its `/health`. |
 | `TEXT_MODEL` | `inception/mercury-2.5` | The model that writes text for text fields. |
 | `TEXT_MODEL_BASE_URL` | AI Gateway | Any OpenAI-compatible endpoint. Set `TEXT_MODEL_API_KEY` for other providers. |
 | `TEXT_MODEL_PRICE_IN`, `TEXT_MODEL_PRICE_OUT` | none | USD per 1M input and output tokens. Set both when your text provider does not report cost; qc-use then estimates the text helper's spend from token counts. |
