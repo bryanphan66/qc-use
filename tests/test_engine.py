@@ -691,3 +691,63 @@ def test_automatic_scrolling_stops_at_its_budget():
     a.act()
     a.browser.act.assert_not_called()
     assert a.state["status"] == "blocked"
+
+
+def test_local_judge_is_reached_over_loopback_with_its_own_key(monkeypatch):
+    calls = []
+
+    def post(url, key, body, **kwargs):
+        calls.append((url, key, body["model"]))
+        return {
+            "model": body["model"],
+            "answers": {
+                "operation": choice(body["questions"]["operation"]["criteria"], "CLICK"),
+                "click_target": choice(body["questions"]["click_target"]["criteria"], "2"),
+            },
+        }
+
+    monkeypatch.setenv("JEV_PROVIDER", "local")
+    monkeypatch.setenv("JEV_BASE_URL", "http://127.0.0.1:8787/")
+    monkeypatch.setenv("JEV_API_KEY", "local-token")
+    monkeypatch.setattr(model, "post_json", post)
+    assert model.choose(page(), "Find a book", [])["choice"] == "e3"
+    assert calls == [("http://127.0.0.1:8787/v1/systemone", "local-token", "local-judge")]
+
+
+@pytest.mark.parametrize(
+    "base",
+    [
+        "",
+        "https://127.0.0.1:8787",
+        "http://example.test:8787",
+        "http://127.0.0.1",
+        "http://127.0.0.1:8787/v1",
+        "http://10.0.0.2:80",
+    ],
+)
+def test_local_judge_refuses_anything_but_a_loopback_origin(monkeypatch, base):
+    monkeypatch.setenv("JEV_PROVIDER", "local")
+    monkeypatch.setenv("JEV_BASE_URL", base)
+    monkeypatch.setenv("JEV_API_KEY", "local-token")
+    post = Mock()
+    monkeypatch.setattr(model, "post_json", post)
+    with pytest.raises(ValueError, match="loopback origin"):
+        model.choose(page(), "Find a book", [])
+    post.assert_not_called()
+
+
+def test_local_judge_without_its_key_stops_before_any_request(monkeypatch):
+    monkeypatch.setenv("JEV_PROVIDER", "local")
+    monkeypatch.setenv("JEV_BASE_URL", "http://127.0.0.1:8787")
+    monkeypatch.delenv("JEV_API_KEY", raising=False)
+    post = Mock()
+    monkeypatch.setattr(model, "post_json", post)
+    with pytest.raises(ValueError, match="JEV_API_KEY"):
+        model.choose(page(), "Find a book", [])
+    post.assert_not_called()
+
+
+def test_unknown_provider_names_local_among_the_choices(monkeypatch):
+    monkeypatch.setenv("JEV_PROVIDER", "typo")
+    with pytest.raises(ValueError, match="local"):
+        model.jev_endpoint()

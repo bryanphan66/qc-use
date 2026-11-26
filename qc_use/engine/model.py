@@ -39,10 +39,33 @@ def credential(names):
     return next((os.environ[name] for name in names if os.environ.get(name)), None)
 
 
+# `local`: a Jev-compatible judge on this machine (same request and response shape), reached only over loopback.
+LOCAL_KEYS = ("JEV_API_KEY",)
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+PROVIDER_NAMES = (*JEV_PROVIDERS, "local")
+
+
+def local_base() -> str:
+    """The local judge origin from JEV_BASE_URL: plain http, a loopback host, an explicit port, nothing else."""
+    base = (os.environ.get("JEV_BASE_URL") or "").strip().rstrip("/")
+    parsed = urlparse(base)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    if parsed.scheme != "http" or parsed.hostname not in LOCAL_HOSTS or not port or parsed.path or parsed.query:
+        raise ValueError(
+            "JEV_PROVIDER=local needs JEV_BASE_URL set to a loopback origin such as http://127.0.0.1:8787."
+        )
+    return base
+
+
 def jev_endpoint() -> tuple[str, tuple[str, ...], str]:
     provider = os.environ.get("JEV_PROVIDER") or "gateway"
+    if provider == "local":
+        return local_base() + "/v1/systemone", LOCAL_KEYS, os.environ.get("TYPESAFE_MODEL") or "local-judge"
     if provider not in JEV_PROVIDERS:
-        raise ValueError(f"JEV_PROVIDER must be one of: {', '.join(JEV_PROVIDERS)}")
+        raise ValueError(f"JEV_PROVIDER must be one of: {', '.join(PROVIDER_NAMES)}")
     url, keys, model = JEV_PROVIDERS[provider]
     return url, keys, os.environ.get("TYPESAFE_MODEL") or model
 

@@ -45,6 +45,7 @@ def doctor(file=None, *, json_output=False):
         "VERCEL_OIDC_TOKEN",
         "TYPESAFE_API_KEY",
         "TEXT_MODEL_API_KEY",
+        "JEV_API_KEY",
     ]
     redact = Redactor({name: os.environ.get(name, "") for name in names})
     report(sys.version_info >= (3, 12), f"Python {sys.version.split()[0]}")
@@ -60,7 +61,18 @@ def doctor(file=None, *, json_output=False):
         url, keys, jev = model.jev_endpoint()
         key = model.credential(keys)
         report(bool(key), f"Jev {jev}", "" if key else f"Set {' or '.join(keys)} in qa/.env or the environment.")
-        if key and url.startswith(model.GATEWAY):
+        if key and keys == model.LOCAL_KEYS:
+            base = model.local_base()
+            try:
+                response = httpx.get(base + "/health", headers={"Authorization": f"Bearer {key}"}, timeout=10)
+                report(
+                    response.status_code == 200,
+                    f"Local judge answers at {base} (HTTP {response.status_code})",
+                    "" if response.status_code == 200 else "Check JEV_API_KEY and the judge's own log.",
+                )
+            except httpx.HTTPError:
+                report(False, f"Nothing answers at {base}", "Start the local judge, then run qc-use doctor again.")
+        elif key and url.startswith(model.GATEWAY):
             try:
                 response = httpx.get(
                     model.GATEWAY + "/v1/credits", headers={"Authorization": f"Bearer {key}"}, timeout=10
